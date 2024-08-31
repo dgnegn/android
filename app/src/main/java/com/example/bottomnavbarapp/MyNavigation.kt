@@ -64,8 +64,8 @@ fun NavigationBar(navController: NavHostController) {
                     selected = currentDestination?.hierarchy?.any { it.route == navbarItem.route } == true,
                     onClick = {
                         navController.navigate(navbarItem.route) {
-                            popUpTo(navController.graph.startDestinationId) {
-                                inclusive = true
+                            popUpTo(NavbarItem.Notes.route) {
+                                inclusive = false
                             }
                             launchSingleTop = true
                         }
@@ -127,20 +127,27 @@ private fun NavGraphBuilder.notesDetailGraph(navController: NavHostController) {
             })
         ) {
             val id: String = it.arguments?.getString("id").toString()
-            NoteDetailScreen(id = id)
+            NoteDetailScreen(
+                id = id,
+                onBackPress = { navController.popBackStack() }
+            )
         }
     }
 }
 
 @Composable
 fun NoteDetailScreen(
-    id: String
+    id: String,
+    onBackPress: () -> Unit
 ) {
     Column(
         Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        Button(onClick = onBackPress) {
+            Text(text = "Back")
+        }
         Text(text = "Note Detail and args:$id")
     }
 }
@@ -187,7 +194,7 @@ fun NotesScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-       Button(onClick = { navigateToNoteDetail("1234")}) {
+       Button(onClick = { navigateToNoteDetail("1")}) {
            Text(text = "Go to Note Detail")
        }
 
