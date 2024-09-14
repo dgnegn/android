@@ -6,8 +6,10 @@ import android.R
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.aplussoft.jetpackcomposeroomapp.data.Note
-import com.aplussoft.jetpackcomposeroomapp.data.NoteDao
+
+import com.aplussoft.jetpackcomposeroomapp.data.NoteRepository
 import com.aplussoft.jetpackcomposeroomapp.ui.note.NoteEvent.HideDialog
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +19,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 
 sealed interface NoteEvent {
@@ -27,8 +30,8 @@ sealed interface NoteEvent {
     object HideDialog : NoteEvent
     data class SortNotes(val sortType: SortType) : NoteEvent
     data class DeleteNote(val note: Note) : NoteEvent
-
-
+    data class setNoteId(val noteId: Int) : NoteEvent
+    data class NoteClicked(val note: Note) : NoteEvent
 }
 
 enum class SortType {
@@ -40,20 +43,21 @@ data class NoteState(
     val notes: List<Note> = listOf<Note>(),
     val title: String = "",
     val body: String = "",
+    val noteId: Int = 0,
     val isAddingNote: Boolean = false,
     val sortType: SortType = SortType.TITLE_ASCENDING,
 
     )
 
-@Suppress("UNCHECKED_CAST")
-class NoteViewModel(private val noteDao: NoteDao) : ViewModel() {
+@HiltViewModel
+class NoteViewModel @Inject constructor(private val noteRepository: NoteRepository) : ViewModel() {
 
     private val _sortType = MutableStateFlow(SortType.TITLE_ASCENDING)
 
     private val _notes = _sortType.flatMapLatest { sortType ->
         when (sortType) {
-            SortType.TITLE_ASCENDING -> noteDao.getNotesOrderedByTitleAsc()
-            SortType.TITLE_DESCENDING -> noteDao.getNotesOrderedByTitleDesc()
+            SortType.TITLE_ASCENDING -> noteRepository.getNotesOrderedByTitleAsc()
+            SortType.TITLE_DESCENDING -> noteRepository.getNotesOrderedByTitleDesc()
         } as Flow<R>
 
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(), listOf<Note>())
@@ -73,7 +77,7 @@ class NoteViewModel(private val noteDao: NoteDao) : ViewModel() {
         when (event) {
             is NoteEvent.DeleteNote -> {
                 viewModelScope.launch {
-                    noteDao.delete(event.note)
+                    noteRepository.delete(event.note)
                 }
             }
 
@@ -99,7 +103,7 @@ class NoteViewModel(private val noteDao: NoteDao) : ViewModel() {
                 val note = Note(title = title, body = body)
 
                 viewModelScope.launch {
-                    noteDao.insert(note)
+                    noteRepository.insert(note)
                 }
                 _state.update {
                     it.copy(
@@ -120,14 +124,25 @@ class NoteViewModel(private val noteDao: NoteDao) : ViewModel() {
                 _state.update { it.copy(title = event.title) }
             }
 
+            is NoteEvent.setNoteId -> {
+                _state.update { it.copy(noteId = event.noteId) }
+            }
+
             is NoteEvent.ShowDialog -> {
 
                 _state.update { it.copy(isAddingNote = true) }
             }
 
+
             is NoteEvent.SortNotes -> {
                 _sortType.value = event.sortType
             }
+
+            is NoteEvent.NoteClicked -> {
+                _state.update { it.copy(noteId = event.note.id) }
+            }
+
         }
     }
 }
+
